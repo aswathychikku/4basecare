@@ -1,0 +1,41 @@
+options:
+  pool:
+    name: projects/PROJECT_ID/locations/REGION/workerPools/my-vpc-worker-pool
+
+steps:
+  # Step 1: Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'REGION-docker.pkg.dev/$PROJECT_ID/REPO_NAME/IMAGE_NAME:$SHORT_SHA'
+      - '.'
+
+  # Step 2: Push Docker image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'REGION-docker.pkg.dev/$PROJECT_ID/REPO_NAME/IMAGE_NAME:$SHORT_SHA'
+
+  # Step 3: Configure kubectl credentials
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'container'
+      - 'clusters'
+      - 'get-credentials'
+      - 'GKE_CLUSTER_NAME'
+      - '--zone'
+      - 'GKE_CLUSTER_ZONE'
+      - '--project'
+      - '$PROJECT_ID'
+
+  # Step 4: Deploy to GKE
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args:
+      - 'set'
+      - 'image'
+      - 'deployment/DEPLOYMENT_NAME'
+      - 'CONTAINER_NAME=REGION-docker.pkg.dev/$PROJECT_ID/REPO_NAME/IMAGE_NAME:$SHORT_SHA'
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=GKE_CLUSTER_ZONE'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=GKE_CLUSTER_NAME'
